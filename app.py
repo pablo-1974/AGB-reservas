@@ -594,10 +594,10 @@ def main():
                 st.warning("Reserva cancelada.")
                 st.rerun()
 
-# Reservas recurrentes (admin)
-if usuario["role"] == "admin":
-    st.divider()
-    st.header("📆 Reservas recurrentes")
+    # Reservas recurrentes (admin)
+    if usuario["role"] == "admin":
+        st.divider()
+        st.header("📆 Reservas recurrentes")
 
     # Inicializa variables para evitar UnboundLocalError
     sub_rec = False
@@ -721,3 +721,4 @@ if usuario["role"] == "admin":
 if __name__ == "__main__":
 
     main()
+
