@@ -594,83 +594,79 @@ def main():
                 st.warning("Reserva cancelada.")
                 st.rerun()
 
-    # Reservas recurrentes (admin)
+# =============== RESERVAS RECURRENTES (ADMIN) ==================
+    # ✅ Solo admins pueden ver y ejecutar este bloque
     if usuario["role"] == "admin":
         st.divider()
         st.header("📆 Reservas recurrentes")
 
-    # Inicializa variables para evitar UnboundLocalError
-    sub_rec = False
-    reserved_rec = None
-    room_rec = None
-    day_idx_rec = None
-    slot_idx_rec = None
-    notes_rec = ""
+        # Inicializa variables para evitar UnboundLocalError si no se llega a definir
+        sub_rec = False
+        reserved_rec = None
+        room_rec = None
+        day_idx_rec = None
+        slot_idx_rec = None
+        notes_rec = ""
 
-    with st.form("form_rec"):
-        profesores = list_profesores()
-        if not profesores:
-            st.warning("No hay profesores registrados. Crea alguno primero en 'Gestión de usuarios'.")
-            # Botón deshabilitado para mantener UI coherente
-            st.form_submit_button("Crear reservas recurrentes", disabled=True)
-        else:
-            mp = {pid: f"{n} ({e})" for pid, n, e in profesores}
-            pid = st.selectbox("Profesor", list(mp.keys()), format_func=lambda x: mp[x], key="rec_pid")
-
-            # Buscar el nombre del profesor con seguridad
-            match_rec = [n for (i, n, e) in profesores if i == pid]
-            if not match_rec:
-                st.error("❌ Error interno: profesor no encontrado.")
+        with st.form("form_rec"):
+            profesores = list_profesores()
+            if not profesores:
+                st.warning("No hay profesores registrados. Crea alguno primero en 'Gestión de usuarios'.")
                 st.form_submit_button("Crear reservas recurrentes", disabled=True)
             else:
-                reserved_rec = match_rec[0]
+                mp = {pid: f"{n} ({e})" for pid, n, e in profesores}
+                pid = st.selectbox("Profesor", list(mp.keys()), format_func=lambda x: mp[x], key="rec_pid")
 
-                rm = {rid: name for rid, name in get_rooms()}
-                if not rm:
-                    st.error("No hay aulas registradas.")
+                match_rec = [n for (i, n, e) in profesores if i == pid]
+                if not match_rec:
+                    st.error("❌ Error interno: profesor no encontrado.")
                     st.form_submit_button("Crear reservas recurrentes", disabled=True)
                 else:
-                    room_rec = st.selectbox("Aula", list(rm.keys()), format_func=lambda r: rm[r], key="rec_room")
+                    reserved_rec = match_rec[0]
 
-                    day_idx_rec = st.selectbox("Día semanal", range(5), format_func=lambda i: DIAS_ES[i], key="rec_day")
-                    slot_idx_rec = st.selectbox("Franja horaria", range(len(SLOTS)),
-                                                format_func=lambda i: f"{SLOTS[i][0]}–{SLOTS[i][1]}",
-                                                key="rec_slot")
+                    rm = {rid: name for rid, name in get_rooms()}
+                    if not rm:
+                        st.error("No hay aulas registradas.")
+                        st.form_submit_button("Crear reservas recurrentes", disabled=True)
+                    else:
+                        room_rec = st.selectbox("Aula", list(rm.keys()), format_func=lambda r: rm[r], key="rec_room")
 
-                    notes_rec = st.text_input("Notas", key="rec_notes")
+                        day_idx_rec = st.selectbox("Día semanal", range(5),
+                                                   format_func=lambda i: DIAS_ES[i], key="rec_day")
+                        slot_idx_rec = st.selectbox("Franja horaria", range(len(SLOTS)),
+                                                    format_func=lambda i: f"{SLOTS[i][0]}–{SLOTS[i][1]}",
+                                                    key="rec_slot")
 
-                    # Aquí sí se define sub_rec
-                    sub_rec = st.form_submit_button("Crear reservas recurrentes", key="rec_submit")
+                        notes_rec = st.text_input("Notas", key="rec_notes")
 
-    # Solo procesar si sub_rec es True y todo está definido
-    if sub_rec and (reserved_rec is not None) and (room_rec is not None) \
-       and (day_idx_rec is not None) and (slot_idx_rec is not None):
+                        sub_rec = st.form_submit_button("Crear reservas recurrentes", key="rec_submit")
 
-        hoy = date.today()
-        fin = fin_de_curso(hoy)
+        # ✅ Doble blindaje: además de estar dentro del if de admin,
+        #    volvemos a comprobar el rol antes de procesar.
+        if (usuario["role"] == "admin") and sub_rec and \
+           (reserved_rec is not None) and (room_rec is not None) and \
+           (day_idx_rec is not None) and (slot_idx_rec is not None):
 
-        # Próxima ocurrencia del día elegido (incluye hoy si coincide)
-        delta = (day_idx_rec - hoy.weekday()) % 7
-        fecha = hoy + timedelta(days=delta)
+            hoy = date.today()
+            fin = fin_de_curso(hoy)
+            delta = (day_idx_rec - hoy.weekday()) % 7
+            fecha = hoy + timedelta(days=delta)
 
-        creadas = 0
-        conflictos = 0
+            creadas = 0
+            conflictos = 0
 
-        while fecha <= fin:
-            # Evitar simultánea del profesor y conflicto del aula
-            if (not profesor_tiene_reserva(fecha, slot_idx_rec, reserved_rec)) and \
-               (not has_conflict(room_rec, fecha, slot_idx_rec)):
-                create_reservation(room_rec, fecha, slot_idx_rec, reserved_rec, notes_rec)
-                creadas += 1
-            else:
-                conflictos += 1
+            while fecha <= fin:
+                if (not profesor_tiene_reserva(fecha, slot_idx_rec, reserved_rec)) and \
+                   (not has_conflict(room_rec, fecha, slot_idx_rec)):
+                    create_reservation(room_rec, fecha, slot_idx_rec, reserved_rec, notes_rec)
+                    creadas += 1
+                else:
+                    conflictos += 1
+                fecha += timedelta(days=7)
 
-            fecha += timedelta(days=7)
-
-        st.success(f"✔ {creadas} reservas creadas.")
-        if conflictos:
-            st.warning(f"⚠ {conflictos} conflictos omitidos.")
-
+            st.success(f"✔ {creadas} reservas creadas.")
+            if conflictos:
+                st.warning(f"⚠ {conflictos} conflictos omitidos.")
     # Gestión de usuarios (admin)
     if usuario["role"] == "admin":
         st.divider()
@@ -721,4 +717,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
