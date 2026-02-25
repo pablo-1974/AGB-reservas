@@ -187,6 +187,37 @@ def set_user_status(user_id: int, status: str):
     return True, "Estado actualizado."
 
 # ======================================
+#   NUEVAS FUNCIONES ADMIN (borrar/cambiar rol)
+# ======================================
+
+def delete_user(user_id: int):
+    with get_conn() as conn:
+        cur = conn.cursor()
+        try:
+            cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
+            conn.commit()
+            return True, "Usuario eliminado correctamente."
+        except Exception as ex:
+            return False, f"No se pudo eliminar el usuario: {ex}"
+
+
+def update_user_role(user_id: int, new_role: str):
+    if new_role not in ("profesor", "admin"):
+        return False, "Rol no válido."
+    with get_conn() as conn:
+        cur = conn.cursor()
+        try:
+            cur.execute("""
+                UPDATE users
+                SET role=%s
+                WHERE id=%s
+            """, (new_role, user_id))
+            conn.commit()
+            return True, "Rol actualizado correctamente."
+        except Exception as ex:
+            return False, f"No se pudo actualizar el rol: {ex}"
+
+# ======================================
 #   RESERVAS — PostgreSQL
 # ======================================
 
@@ -1193,6 +1224,61 @@ def render_admin_user_management(usuario):
     else:
         st.info("Aún no hay profesores registrados.")
 
+    # -----------------------------------
+    # BORRAR USUARIO (ADMIN)
+    # -----------------------------------
+    st.subheader("🗑️ Borrar usuario")
+    users_raw = list_users()
+    delete_map = {uid: f"{name} <{email}> ({role})" for uid, name, email, role, estado, pwh in users_raw}
+
+    if delete_map:
+        uid_del = st.selectbox(
+            "Selecciona el usuario a eliminar",
+            list(delete_map.keys()),
+            format_func=lambda k: delete_map[k],
+            key="delete_user_select"
+        )
+        if st.button("Borrar usuario", key="btn_delete_user"):
+            if uid_del == usuario["id"]:
+                st.error("No puedes borrarte a ti mismo.")
+            else:
+                ok, msg = delete_user(uid_del)
+                (st.success if ok else st.error)(msg)
+                if ok:
+                    st.rerun()
+    else:
+        st.info("No hay usuarios para borrar.")
+
+    # -----------------------------------
+    # CAMBIAR ROL (ADMIN)
+    # -----------------------------------
+    st.subheader("🎚️ Cambiar rol (profesor ↔ admin)")
+    users_raw = list_users()
+    role_map = {uid: f"{name} <{email}> [{role}]" for uid, name, email, role, estado, pwh in users_raw}
+
+    if role_map:
+        uid_role = st.selectbox(
+            "Usuario",
+            list(role_map.keys()),
+            format_func=lambda k: role_map[k],
+            key="role_user_select"
+        )
+        new_role = st.selectbox(
+            "Nuevo rol",
+            ["profesor", "admin"],
+            key="set_role_select"
+        )
+        if st.button("Actualizar rol", key="btn_update_role"):
+            if uid_role == usuario["id"]:
+                st.error("No puedes cambiar tu propio rol.")
+            else:
+                ok, msg = update_user_role(uid_role, new_role)
+                (st.success if ok else st.error)(msg)
+                if ok:
+                    st.rerun()
+    else:
+        st.info("No hay usuarios disponibles para actualizar el rol.")
+
 
 def render_admin_stats(usuario):
     if usuario["role"] != "admin":
@@ -1269,6 +1355,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
