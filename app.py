@@ -861,6 +861,81 @@ def render_create_reservation(usuario, room_id, week_monday):
         format_func=lambda i: DIAS_ES[i],
         key="reserve_day"
     )
+    slot_idx = st.selectbox(
+        "Hora",
+        range(len(SLOTS)),
+        format_func=lambda i: f"{SLOTS[i][0]}–{SLOTS[i][1]}",
+        key="reserve_slot"
+    )
+    notes = st.text_input("Notas", key="reserve_notes")
+
+    if st.button("Reservar", key="btn_reservar"):
+        if reserved_by_id is None:
+            st.error("Selecciona un profesor válido.")
+            return
+
+        fecha = week_monday + timedelta(days=day_idx)
+        hoy = date.today()
+
+        if usuario["role"] == "profesor":
+            if fecha < hoy:
+                st.error("Día pasado.")
+                return
+            if fecha == hoy:
+                inicio = datetime.strptime(SLOTS[slot_idx][0], "%H:%M").time()
+                if datetime.now().time() > inicio:
+                    st.error("Esa franja ya pasó hoy.")
+                    return
+            if (fecha - hoy).days > 7:
+                st.error("Máximo 7 días de antelación.")
+                return
+
+        ok, msg = create_reservation(room_id, fecha, slot_idx, reserved_by_id, notes)
+        if ok:
+            st.success(msg)
+            st.rerun()
+        else:
+            st.error(msg)
+
+
+def render_cancel_reservation(usuario, room_id, week_monday):
+    st.markdown("### 🧾 Cancelar reserva")
+
+    reservas = list_reservations(room_id, week_monday, week_monday + timedelta(days=4))
+    users_all = list_users()
+    users_map = {uid: name for (uid, name, email, role, status, pwh) in users_all}
+
+    opciones = []
+    for r in reservas:
+        rid, _, fstr, slot, by_id, notes_r, _ = r
+        f = fstr
+        etiqueta = (
+            f"{f.strftime('%d/%m')} · "
+            f"{DIAS_ES[f.weekday()]} · "
+            f"{SLOTS[slot][0]}–{SLOTS[slot][1]} · "
+            f"{users_map.get(by_id, '—')}"
+        )
+        if notes_r:
+            etiqueta += f" · {notes_r}"
+        if usuario["role"] == "profesor" and by_id != usuario["id"]:
+            continue
+        opciones.append((rid, etiqueta))
+
+    if not opciones:
+        st.info("No tienes reservas que puedas cancelar.")
+        return
+
+    sel = st.selectbox(
+        "Reserva",
+        opciones,
+        format_func=lambda x: x[1],
+        key="reserve_cancel_sel"
+    )
+
+    if st.button("Cancelar", key="btn_cancelar"):
+        delete_reservation(sel[0])
+        st.warning("Reserva cancelada.")
+        st.rerun()
 
 # ======================================
 # BLOQUE 10.4 — RESERVAS RECURRENTES (ADMIN)
@@ -1194,6 +1269,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
