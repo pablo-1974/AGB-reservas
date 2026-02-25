@@ -1,16 +1,16 @@
 # app.py — versión PostgreSQL completa
 
-import os
-import re
-import base64
-import hmac
-import hashlib
-from io import BytesIO
-from datetime import date, datetime, timedelta
-from pathlib import Path
+#import os
+#import re
+#import base64
+#import hmac
+#import hashlib
+#from io import BytesIO
+#from datetime import date, datetime, timedelta
+#from pathlib import Path
 
-import streamlit as st
-import pandas as pd
+#import streamlit as st
+#import pandas as pd
 
 from db import get_conn
 from schema import init_db
@@ -1195,3 +1195,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
