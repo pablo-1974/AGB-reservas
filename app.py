@@ -277,8 +277,8 @@ def delete_reservation(reservation_id):
 from datetime import date, timedelta
 import pandas as pd
 from db import get_conn
-from usuarios import list_users
-from reservas import list_reservations
+#from usuarios import list_users
+#from reservas import list_reservations
 # (Ajusta los imports si usas módulos, o elimina si está todo en app.py)
 
 # ----------------------
@@ -1195,4 +1195,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
