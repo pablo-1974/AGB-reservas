@@ -495,78 +495,94 @@ def obtener_estadisticas():
 # ======================================
 
 def login_screen():
-    st.markdown("<div class='login-container'>", unsafe_allow_html=True)
+    # CSS para el estilo profesional "Verde Moderno"
+    st.markdown("""
+        <style>
+        /* Fondo con gradiente profesional */
+        .stApp {
+            background: linear-gradient(135deg, #f0f9f4 0%, #e8f5e9 100%);
+        }
+
+        /* Contenedor del Login (Card) */
+        .login-card {
+            background-color: white;
+            padding: 2.5rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            max-width: 450px;
+            margin: 2rem auto;
+            border-top: 5px solid #2e7d32; /* Verde institucional oscuro */
+        }
+
+        /* Ajustes de botones */
+        .stButton>button {
+            width: 100%;
+            background-color: #2e7d32;
+            color: white;
+            border-radius: 8px;
+            border: none;
+            padding: 0.5rem;
+            transition: all 0.3s;
+        }
+        .stButton>button:hover {
+            background-color: #1b5e20;
+            border: none;
+            color: white;
+            transform: translateY(-1px);
+        }
+        
+        /* Ocultar elementos innecesarios de Streamlit en login */
+        #MainMenu {visibility: hidden;}
+        header {visibility: hidden;}
+        footer {visibility: hidden;}
+        </style>
+    """, unsafe_allow_html=True)
+
+    # Contenedor visual
+    st.markdown('<div class="login-card">', unsafe_allow_html=True)
 
     # LOGO (centrado)
-    try:
-        st.image("logo.png", width=140)
-    except:
-        st.write("")
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        try:
+            st.image("logo.png", use_container_width=True)
+        except:
+            st.markdown("<h1 style='text-align: center; color: #2e7d32;'>🏫</h1>", unsafe_allow_html=True)
 
     # TÍTULO
     st.markdown("""
-        <h2 style="margin-top: 10px; margin-bottom: 2px;">Reserva de aulas</h2>
-        <h4 style="color: #333; font-weight: normal; margin-top: 0px;">
-            IES Antonio García Bellido
-        </h4>
+        <div style="text-align: center;">
+            <h2 style="margin-bottom: 0; color: #1b5e20;">Reserva de aulas</h2>
+            <p style="color: #666; font-size: 0.9rem;">IES Antonio García Bellido</p>
+        </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("<hr>", unsafe_allow_html=True)
+    # Inputs
+    email = st.text_input("Email institucional", key="login_email", placeholder="ejemplo@centro.es")
+    password = st.text_input("Contraseña", type="password", key="login_password", placeholder="••••••••")
 
-    # Email y password en la MISMA pantalla
-    email = st.text_input("Email institucional", key="login_email")
-    password = st.text_input("Contraseña", type="password", key="login_password")
-
-    login_btn = st.button("Entrar", key="login_btn")
+    st.markdown("<br>", unsafe_allow_html=True)
+    login_btn = st.button("Iniciar sesión", key="login_btn")
 
     if login_btn:
         u = get_user_by_email(email)
         if not u:
             st.error("Email no registrado.")
-            st.markdown("</div>", unsafe_allow_html=True)
-            return
-
-        uid, name, email, role, status, pwd_hash = u
-
-        if role == "profesor" and status != "activo":
-            st.error("Tu cuenta está suspendida. Contacta con un administrador.")
-            st.markdown("</div>", unsafe_allow_html=True)
-            return
-
-        # Primer acceso sin contraseña
-        if pwd_hash is None:
-            st.session_state["pending_user"] = {
-                "id": uid,
-                "name": name,
-                "email": email,
-                "role": role,
-                "status": status
-            }
-            st.session_state["needs_password_setup"] = True
-            st.rerun()
-
-        # Falta contraseña
-        if not password:
-            st.error("Introduce la contraseña.")
-            st.markdown("</div>", unsafe_allow_html=True)
-            return
-
-        # Login correcto
-        if verify_password(password, pwd_hash):
-            st.session_state["user"] = {
-                "id": uid,
-                "name": name,
-                "email": email,
-                "role": role,
-                "status": status
-            }
-            st.markdown("</div>", unsafe_allow_html=True)
-            st.rerun()
         else:
-            st.error("Contraseña incorrecta.")
+            uid, name, email, role, status, pwd_hash = u
+            if role == "profesor" and status != "activo":
+                st.error("Cuenta suspendida.")
+            elif pwd_hash is None:
+                st.session_state["pending_user"] = {"id": uid, "name": name, "email": email, "role": role, "status": status}
+                st.session_state["needs_password_setup"] = True
+                st.rerun()
+            elif verify_password(password, pwd_hash):
+                st.session_state["user"] = {"id": uid, "name": name, "email": email, "role": role, "status": status}
+                st.rerun()
+            else:
+                st.error("Contraseña incorrecta.")
 
     st.markdown("</div>", unsafe_allow_html=True)
-
 def first_password_screen():
     u = st.session_state["pending_user"]
     st.title("🔑 Crear contraseña nueva")
