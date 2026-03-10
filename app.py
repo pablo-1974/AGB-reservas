@@ -1165,6 +1165,71 @@ def render_admin_stats(usuario):
     st.bar_chart(est["por_franja"])
     st.dataframe(est["por_franja"].reset_index().rename(columns={"id": "Reservas"}))
 
+def first_password_screen():
+    """
+    Pantalla para que un usuario cuyo password_hash es NULL establezca su primera contraseña.
+    Usa st.session_state['pending_user'] que fue rellenado en login_screen().
+    """
+    pu = st.session_state.get("pending_user")
+    if not pu:
+        # No hay usuario pendiente: sanea el flag y vuelve al login
+        st.session_state.pop("needs_password_setup", None)
+        st.warning("No hay usuario pendiente para configurar contraseña.")
+        st.rerun()
+
+    # Si es un profesor suspendido, no permitir el alta de contraseña
+    if pu.get("role") == "profesor" and pu.get("status") != "activo":
+        st.error("Tu cuenta está suspendida. Contacta con un administrador.")
+        if st.button("Volver al inicio de sesión", key="fps_back"):
+            st.session_state.pop("pending_user", None)
+            st.session_state.pop("needs_password_setup", None)
+            st.rerun()
+        return
+
+    st.title("🔐 Crea tu contraseña")
+    st.write(f"Usuario: **{pu['name']}**  \nEmail: `{pu['email']}`")
+
+    p1 = st.text_input("Nueva contraseña", type="password", key="fps_p1")
+    p2 = st.text_input("Repite la contraseña", type="password", key="fps_p2")
+
+    cols = st.columns([1, 1])
+    with cols[0]:
+        guardar = st.button("Guardar contraseña", key="fps_save")
+    with cols[1]:
+        cancelar = st.button("Cancelar", key="fps_cancel")
+
+    if cancelar:
+        # Cancelar configuración: limpiar y volver a login
+        st.session_state.pop("pending_user", None)
+        st.session_state.pop("needs_password_setup", None)
+        st.rerun()
+
+    if guardar:
+        if p1 != p2:
+            st.error("❌ Las contraseñas no coinciden.")
+            return
+        if len(p1) < 4:
+            st.error("❌ Contraseña demasiado corta (mín. 4 caracteres).")
+            return
+
+        try:
+            # Persistir contraseña
+            set_user_password(pu["id"], hash_password_secure(p1))
+            # Autologin tras establecer contraseña
+            st.session_state["user"] = {
+                "id": pu["id"],
+                "name": pu["name"],
+                "email": pu["email"],
+                "role": pu["role"],
+                "status": pu["status"],
+            }
+            # Limpiar banderas
+            st.session_state.pop("pending_user", None)
+            st.session_state.pop("needs_password_setup", None)
+            st.success("✔ Contraseña configurada correctamente.")
+            st.rerun()
+        except Exception as ex:
+            st.error(f"No se pudo guardar la contraseña: {ex}")
 
 # ======================================
 #   MAIN
